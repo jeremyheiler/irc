@@ -1,4 +1,4 @@
- #include <stdio.h>
+#include <stdio.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,6 +9,9 @@
 #include <unistd.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+
+/* TODO: do signal handling properly */
+/* TODO: synchronize writes to stdout */
 
 int run = 1;
 
@@ -59,7 +62,6 @@ main(int argc, char *argv[])
         void *addr = &(ip->sin_addr);
         char ipstr[INET_ADDRSTRLEN];
         inet_ntop(servinfo->ai_family, addr, ipstr, sizeof ipstr);
-        printf("%s\n", ipstr);
 
         /* socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol); */
         int sock = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -67,7 +69,6 @@ main(int argc, char *argv[])
                 perror("Socket");
                 return -1;
         }
-        printf("Socket FD: %d\n", sock);
 
         status = connect(sock, servinfo->ai_addr, servinfo->ai_addrlen);
         if (status == -1) {
@@ -116,17 +117,15 @@ main(int argc, char *argv[])
                         }
 
                         if (inbuf[r - 1] == '\n') {
-                                printf("replaceing new line...");
-                                inbuf[r - 1] = '\r'; /* replaces \n */
-                                inbuf[r] = '\n'; /* insert a new \n */
+                                inbuf[r - 1] = '\r';
+                                inbuf[r] = '\n';
                         }
-                        
+
                         /* ensure we can write to sock */
                         if (!FD_ISSET(sock, &wfds)) {
                                 /* select on sock for writing */
                                 fd_set wfds_sock;
                                 FD_SET(sock, &wfds_sock);
-                                printf("selecting write sock\n");
                                 s = select(sock + 1, NULL, &wfds_sock, NULL, NULL);
                                 /* always going to be sock or error */
                                 if (s == -1) {
@@ -149,7 +148,6 @@ main(int argc, char *argv[])
                         ssize_t r;
                         
                         char buf[MAX_MESSAGE_SIZE + 1];
-                        char ovr[MAX_MESSAGE_SIZE];
                         memset(&buf, 0, sizeof buf);
                         r = recv(sock, (void *) &buf, MAX_MESSAGE_SIZE, 0);
                         if (r < 1) {
@@ -159,9 +157,10 @@ main(int argc, char *argv[])
                         }
 
                         if (buf[MAX_MESSAGE_SIZE] != '\0') {
-                                /* truncate message to inclde CRLN */
+                                char ovr[MAX_MESSAGE_SIZE];
+                                /* truncate message to inclde CRLN
                                 buf[MAX_MESSAGE_SIZE - 2] = '\r';
-                                buf[MAX_MESSAGE_SIZE - 1] = '\n';
+                                buf[MAX_MESSAGE_SIZE - 1] = '\n';*/
                                 /* drop bytes over the initial 512 */
                                 while (r == MAX_MESSAGE_SIZE) {
                                         r = recv(sock, (void *) &ovr, MAX_MESSAGE_SIZE, 0);
@@ -178,7 +177,6 @@ main(int argc, char *argv[])
                                 /* select on stdout for writing */
                                 fd_set wfds_stdout;
                                 FD_SET(STDOUT_FILENO, &wfds_stdout);
-                                printf("selecting write stdout\n");
                                 s = select(STDOUT_FILENO + 1, NULL, &wfds_stdout, NULL, NULL);
                                 /* always going to be stdout or error */
                                 if (s == -1) {
@@ -188,7 +186,7 @@ main(int argc, char *argv[])
                         }
 
                         /* write to stdout */
-                        printf("> %s", buf);
+                        printf("%s", buf);
                 }
 
         }
