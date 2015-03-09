@@ -1,6 +1,7 @@
-CFLAGS=-std=c99 -Wall -pedantic -g
+CFLAGS=-std=c99 -Wall -pedantic -g -DCOMMENT=0
 
-all: client
+all:
+	clang irc.c bot.c -o bot
 
 clean:
-	rm -rf client
+	rm -rf bot
