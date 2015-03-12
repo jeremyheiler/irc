@@ -13,8 +13,6 @@
 
 #include "irc.h"
 
-/* TODO: synchronize writes to stdout */
-
 #define MAX_MESSAGE_SIZE 512
 
 void
@@ -23,15 +21,19 @@ irc_parse_reply(char *reply)
         
 }
 
+/* TODO(jeremy): synchronize writes to stdout */
+
 int
 bot_rstart(void *arg)
 {
+        printf("r here\n");
         return 0;
 }
 
 int
 bot_wstart(void *arg)
 {
+        printf("w here\n");
         return 0;
 }
 
@@ -59,32 +61,30 @@ main(int argc, char *argv[])
                 return -1;
         }
 
-        pthread_t *rthread;
-        pthread_t *wthread;
+        pthread_t rthread;
+        pthread_t wthread;
 
         /* pass in the other pthread for mutually assured destruction */
-        rv = pthread_create(rthread, 
+        rv = pthread_create(&rthread, 
                             NULL, 
                             (void *) bot_rstart,
-                            NULL);
-        //(void *) wthread);
+                            &wthread);
 
         if (rv != 0) {
                 printf("pthread_create r: %d\n", rv);
                 irc_free(sock);
                 return -1;
         }
-                
-        rv = pthread_create(wthread,
+        
+        rv = pthread_create(&wthread,
                             NULL,
                             (void *) bot_wstart,
-                            NULL);
-        //(void *) rthread);
-
+                            &rthread);
+ 
         if (rv != 0) {
                 printf("pthread_create w: %d\n", rv);
                 /* TODO(jeremy): cleanup rthread */
-                rv = pthread_cancel(*rthread);
+                rv = pthread_cancel(rthread);
                 if (rv != 0) {
                         printf("pthread_cancel rthread error %d\n", rv);
                 }
@@ -95,12 +95,12 @@ main(int argc, char *argv[])
         int *rrv;
         int *wrv;
         
-        rv = pthread_join(*rthread, (void **)&rrv);
+        rv = pthread_join(rthread, (void **)&rrv);
 
         if (rv == -1) {
                 perror("pthread_join r");
                 /* TODO(jeremy): cleanup wthread */
-                rv = pthread_cancel(*wthread);
+                rv = pthread_cancel(wthread);
                 if (rv != 0) {
                         printf("pthread_cancel wthread error %d\n", rv);
                 }
@@ -108,15 +108,13 @@ main(int argc, char *argv[])
                 return -1;
         }
         
-        rv = pthread_join(*wthread, (void **)&wrv);
+        rv = pthread_join(wthread, (void **)&wrv);
 
         if (rv == -1) {
                 perror("pthread_join w");
                 irc_free(sock);
                 return -1;
         }
-#ifdef COMMENT
-#endif
 
         irc_free(sock);
         return 0;

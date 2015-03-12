@@ -120,3 +120,16 @@ irc_free(int sockfd)
         }        
 }
 
+int
+irc_send_command(int sockfd, char *buf, size_t len)
+{
+        ssize_t r;
+        r = send(sockfd, buf, len, 0);
+        return r;
+}
+
+int
+irc_send_command_nick(int sockfd, char *nick)
+{
+        
+}
